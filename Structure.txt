@@ -3,8 +3,6 @@ FastAPI services (payment-service)
 OpenTelemetry instrumentation
         ↓
 Prometheus (metrics)
-Tempo (traces)
-Loki (logs)
         ↓
 Incident detection logic
         ↓
