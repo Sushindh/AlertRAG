@@ -1,0 +1,116 @@
+1) Slow trace? Why recent?
+2) Incident output once
+3) Output of latency_query, error_query to understand the index once
+latency = query_prometheus(latency_query)
+    errors = query_prometheus(error_query)
+5) Why summing the latency_qeury and error_query? 
+6) RECENT_TRACES.append({
+    "trace_id": trace_id,
+    "latency": duration,
+    "endpoint": "/pay",
+    "ts":time.time()       #WHAT IT DOES?
+    })
+
+7) metric_exporter = OTLPMetricExporter(
+    endpoint="http://otel-collector:4318/v1/metrics"   ##WHAT IS v1?
+)
+
+8) @app.get("/recent-traces")
+def recent_traces():
+    return RECENT_TRACES[-5:]  ## WHY RETURNING RECENT_TRACES? WHY NOT ALL?
+
+10) WHAT EACH DOES?
+from opentelemetry import trace
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.trace import get_current_span
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+
+from opentelemetry import metrics
+from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
+from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
+
+# ---- OpenTelemetry Setup ----
+
+resource = Resource.create({
+    "service.name": "payment-service",
+    "deployment.environment": "demo"
+})
+
+#TRACES
+trace.set_tracer_provider(TracerProvider(resource=resource))
+tracer = trace.get_tracer(__name__)
+
+otlp_exporter = OTLPSpanExporter(
+    endpoint="http://otel-collector:4318/v1/traces"
+)
+
+trace.get_tracer_provider().add_span_processor(
+    BatchSpanProcessor(otlp_exporter)
+)
+
+# METRICS
+metric_exporter = OTLPMetricExporter(
+    endpoint="http://otel-collector:4318/v1/metrics"
+)
+
+reader = PeriodicExportingMetricReader(
+    metric_exporter,
+    export_interval_millis=10000  # 10 seconds
+)
+
+# default it sends batch for every 60 secs, 
+# customize it by export_interval_millis=10000  # every 10 seconds
+
+metrics.set_meter_provider(
+    MeterProvider(
+        resource=resource,
+        metric_readers=[reader]
+    )
+)
+
+meter = metrics.get_meter(__name__)
+
+payment_latency = meter.create_histogram(
+    name="payment_latency_seconds",
+    description="Latency of payment processing",
+    unit="s",
+)
+
+payment_failures = meter.create_counter(
+    name="payment_failures_total",
+    description="Number of failed payments",
+)
+
+
+11) latency_query = """
+    histogram_quantile(
+      0.95,
+      sum(increase(payment_latency_seconds_bucket[1m])) by (le)   ### EXPLAIN INCREASE AND RATE? WHY SUM? EXPAIN THIS LINE SYNTAX
+    )
+    """
+
+    error_query = """
+    sum(increase(payment_failures_total[1m]))
+    """
+
+12)
+incident = {
+            "id": f"INC-{len(INCIDENTS)+1}",
+            "service": "payment-service",
+            "type": "High Latency",
+            "detected_at": datetime.utcnow().isoformat(),
+            "latency_p95": latency[0]["value"][1],
+            "errors": errors[0]["value"][1] if errors else 0
+        }
+        try:
+            recent = requests.get(
+                "http://payment-service:8000/recent-traces",
+                timeout=2
+            ).json()
+        except Exception:
+            incident["trace_status"] = "Trace data unavailable"   ### IN THE INCIDENT THERE IS NO KEY CALL "trace_status", SO HOW IT MAPS AND STORES?
+
