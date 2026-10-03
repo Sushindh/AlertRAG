@@ -225,11 +225,28 @@ Response:
 * Docker Compose
 
 ### /server/env
+You can use Azure, Ollama, or Hugging Face.
+
+Azure:
 ```
-AZURE_OPENAI_ENDPOINT= GET IT FROM AZURE
-AZURE_OPENAI_KEY= GET IT FROM AZURE
-AZURE_OPENAI_DEPLOYMENT= GET IT FROM AZURE
-AZURE_OPENAI_API_VERSION= GET IT FROM AZURE
+AZURE_OPENAI_ENDPOINT=GET IT FROM AZURE
+AZURE_OPENAI_KEY=GET IT FROM AZURE
+AZURE_OPENAI_DEPLOYMENT=GET IT FROM AZURE
+AZURE_OPENAI_API_VERSION=GET IT FROM AZURE
+```
+
+Local / free options:
+```
+LLM_PROVIDER=ollama
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=llama3.2
+```
+
+Or Hugging Face Inference API:
+```
+LLM_PROVIDER=huggingface
+HUGGINGFACE_MODEL=microsoft/Phi-3-mini-4k-instruct
+HUGGINGFACE_API_KEY=your_token_if_needed
 ```
 
 ### Start Everything
